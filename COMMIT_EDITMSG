@@ -1,14 +1,5 @@
-Assistant checkpoint
+Checkpoint before assistant change: Add images to visually illustrate a problem or feature being discussed
 
-Assistant generated file changes:
-- celica_web/models.py: Restaurer le modèle Utilisateur complet avec tous les champs originaux
-- celica_web/forms.py: Restaurer les formulaires pour fonctionner avec la structure complète
-
----
-
-User prompt:
-
-restaure toute la structure complete de l'application telle qu'elle etait au depart
+Attach images to a discussion to provide visual context and aid understanding.
 
 Replit-Commit-Author: Assistant
-Replit-Commit-Session-Id: 5e41e953-dac1-43e5-97f5-f3faf8f4ee8f
