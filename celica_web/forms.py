@@ -3,6 +3,7 @@ from django.contrib.auth.forms import AuthenticationForm
 from django.forms import inlineformset_factory, ModelForm, ModelMultipleChoiceField, FileField, ChoiceField, FileInput
 from django.core.validators import FileExtensionValidator
 from .models import Test, Question, Reponse, Module, Groupe, Planning, Cours, Aide, Utilisateur, Resultat, Notification
+from django.contrib.auth.models import User
 import uuid
 from datetime import date
 import zipfile
@@ -17,23 +18,50 @@ class ApprenantPreinscriptionForm(forms.ModelForm):
     email = forms.EmailField(widget=forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'Entrez votre email'}))
     first_name = forms.CharField(max_length=30, widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Entrez votre prénom'}))
     last_name = forms.CharField(max_length=30, widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Entrez votre nom'}))
-    matricule = forms.CharField(max_length=20, widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Entrez votre matricule'}))
     date_naissance = forms.DateField(widget=forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}))
-    
+
     class Meta:
         model = Utilisateur
-        fields = ['role']
+        fields = ['matricule', 'role', 'specialite', 'niveau']
         labels = {
             'first_name': 'Prénom',
             'last_name': 'Nom',
+            'matricule': 'Matricule',
+            'specialite': 'Spécialité',
+            'niveau': 'Niveau',
         }
         widgets = {
-            'date_naissance': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
-            'email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'Entrez votre email'}),
             'matricule': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Entrez votre matricule'}),
-            'first_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Entrez votre prénom'}),
-            'last_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Entrez votre nom'}),
+            'role': forms.HiddenInput(),
+            'specialite': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Entrez votre spécialité'}),
+            'niveau': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Entrez votre niveau'}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['role'].initial = 'apprenant'
+
+    def save(self, commit=True):
+        # Créer l'utilisateur Django d'abord
+        user_data = {
+            'username': f"apprenant_{uuid.uuid4().hex[:8]}",
+            'email': self.cleaned_data['email'],
+            'first_name': self.cleaned_data['first_name'],
+            'last_name': self.cleaned_data['last_name'],
+        }
+        user = User.objects.create_user(**user_data)
+        user.set_password('temp_password_123')  # Mot de passe temporaire
+        user.save()
+
+        # Créer le profil Utilisateur
+        utilisateur = super().save(commit=False)
+        utilisateur.user = user
+        utilisateur.date_naissance = self.cleaned_data['date_naissance']
+        utilisateur.statut = 'en_attente'
+
+        if commit:
+            utilisateur.save()
+        return utilisateur
 
     def clean_date_naissance(self):
         date_naissance = self.cleaned_data['date_naissance']
@@ -54,7 +82,6 @@ class InstructeurPreinscriptionForm(forms.ModelForm):
     email = forms.EmailField(widget=forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'Entrez votre email'}))
     first_name = forms.CharField(max_length=30, widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Entrez votre prénom'}))
     last_name = forms.CharField(max_length=30, widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Entrez votre nom'}))
-    matricule = forms.CharField(max_length=20, widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Entrez votre matricule'}))
     date_naissance = forms.DateField(widget=forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}))
     qualifications = forms.CharField(
         max_length=500,
@@ -65,18 +92,46 @@ class InstructeurPreinscriptionForm(forms.ModelForm):
 
     class Meta:
         model = Utilisateur
-        fields = ['role']
+        fields = ['matricule', 'role', 'specialite', 'niveau']
         labels = {
             'first_name': 'Prénom',
             'last_name': 'Nom',
+            'matricule': 'Matricule',
+            'specialite': 'Spécialité',
+            'niveau': 'Niveau',
         }
         widgets = {
-            'date_naissance': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
-            'email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'Entrez votre email'}),
             'matricule': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Entrez votre matricule'}),
-            'first_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Entrez votre prénom'}),
-            'last_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Entrez votre nom'}),
+            'role': forms.HiddenInput(),
+            'specialite': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Entrez votre spécialité'}),
+            'niveau': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Entrez votre niveau'}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['role'].initial = 'instructeur'
+
+    def save(self, commit=True):
+        # Créer l'utilisateur Django d'abord
+        user_data = {
+            'username': f"instructeur_{uuid.uuid4().hex[:8]}",
+            'email': self.cleaned_data['email'],
+            'first_name': self.cleaned_data['first_name'],
+            'last_name': self.cleaned_data['last_name'],
+        }
+        user = User.objects.create_user(**user_data)
+        user.set_password('temp_password_123')  # Mot de passe temporaire
+        user.save()
+
+        # Créer le profil Utilisateur
+        utilisateur = super().save(commit=False)
+        utilisateur.user = user
+        utilisateur.date_naissance = self.cleaned_data['date_naissance']
+        utilisateur.statut = 'en_attente'
+
+        if commit:
+            utilisateur.save()
+        return utilisateur
 
     def clean_date_naissance(self):
         date_naissance = self.cleaned_data['date_naissance']
@@ -138,7 +193,6 @@ class TestForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
-        # **CORRECTION : Extraire l'utilisateur si fourni**
         self.user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
 
@@ -148,10 +202,13 @@ class TestForm(forms.ModelForm):
 
     def save(self, commit=True):
         test = super().save(commit=False)
+        test.duree_minutes = test.duree
+        test.note_passage = test.bareme * 0.5  # 50% par défaut
 
         # Assigner l'instructeur si disponible et pas déjà défini
         if self.user and not test.instructeur_id:
             test.instructeur = self.user
+            test.createur = self.user
 
         if commit:
             test.save()
@@ -196,18 +253,10 @@ class QuestionForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Définir les choix pour les champs
-        self.fields['type_question'].choices = [
-            ('', 'Sélectionnez le type'),
-            ('QCM', 'QCM (Questionnaire à Choix Multiple)'),
-            ('QRL', 'QRL (Question à Réponse Libre)')
-        ]
-        self.fields['niveau_difficulte'].choices = [
-            ('', 'Sélectionnez le niveau'),
-            ('facile', 'Facile'),
-            ('moyen', 'Moyen'),
-            ('difficile', 'Difficile')
-        ]
+        # Mise à jour pour utiliser les nouveaux champs
+        self.fields['enonce'].label = "Énoncé"
+        if 'texte' in self.fields:
+            del self.fields['texte']
 
 class ReponseForm(forms.ModelForm):
     class Meta:
@@ -229,10 +278,7 @@ class ReponseForm(forms.ModelForm):
             })
         }
 
-# **NOUVEAU : Formset pour les réponses**
-from django.forms import formset_factory
-
-# FormSet corrigé pour les réponses
+# FormSet pour les réponses
 ReponseFormSet = formset_factory(
     ReponseForm,
     extra=2,
@@ -242,7 +288,6 @@ ReponseFormSet = formset_factory(
     validate_min=True
 )
 
-# **NOUVEAU : Formset pour les nouvelles réponses lors de la création**
 NewReponseFormSet = forms.formset_factory(
     ReponseForm,
     extra=2,
@@ -262,6 +307,17 @@ class ImportQuestionsForm(forms.Form):
             'accept': '.csv,.xlsx,.xls'
         }),
         help_text="Formats supportés : CSV, Excel (.xlsx, .xls)"
+    )
+
+    images = forms.FileField(
+        label="Archive d'images (optionnel)",
+        validators=[FileExtensionValidator(allowed_extensions=['zip'])],
+        widget=forms.ClearableFileInput(attrs={
+            'class': 'form-control',
+            'accept': '.zip'
+        }),
+        required=False,
+        help_text="Archive ZIP contenant les images des questions"
     )
 
     module = forms.ModelChoiceField(
@@ -486,14 +542,19 @@ class ImportCoursForm(forms.Form):
 class ModuleForm(ModelForm):
     class Meta:
         model = Module
-        fields = ['intitule', 'description', 'categorie', 'status', 'instructeur_principal']
+        fields = ['nom', 'intitule', 'description', 'categorie', 'status', 'instructeur_principal']
         widgets = {
+            'nom': forms.TextInput(attrs={'class': 'form-control', 'placeholder': "Entrez le nom du module"}),
             'intitule': forms.TextInput(attrs={'class': 'form-control', 'placeholder': "Entrez l'intitulé du module"}),
             'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Décrivez le module'}),
             'categorie': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Entrez la catégorie'}),
             'status': forms.Select(attrs={'class': 'form-control'}),
             'instructeur_principal': forms.Select(attrs={'class': 'form-control'}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['instructeur_principal'].queryset = Utilisateur.objects.filter(role__in=['instructeur', 'admin'])
 
     def clean_intitule(self):
         intitule = self.cleaned_data['intitule']
@@ -508,13 +569,20 @@ class GroupeForm(forms.ModelForm):
         required=False,
         label="Apprenants"
     )
+    instructeurs = forms.ModelMultipleChoiceField(
+        queryset=Utilisateur.objects.filter(role='instructeur'),
+        widget=forms.SelectMultiple(attrs={'class': 'form-select'}),
+        required=False,
+        label="Instructeurs"
+    )
 
     class Meta:
         model = Groupe
-        fields = ['nom', 'description', 'capacite_max', 'apprenants']
+        fields = ['nom', 'description', 'code', 'capacite_max', 'apprenants', 'instructeurs']
         widgets = {
             'nom': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Entrez le nom du groupe'}),
             'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Décrivez le groupe'}),
+            'code': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Code du groupe (optionnel)'}),
             'capacite_max': forms.NumberInput(attrs={'class': 'form-control', 'min': 1}),
         }
 
@@ -532,13 +600,14 @@ class PlanningForm(ModelForm):
             'titre': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Entrez le titre du planning'}),
             'date_debut': forms.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'}),
             'date_fin': forms.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'}),
-            #'lieu': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Entrez le lieu (facultatif)'}),
             'test': forms.Select(attrs={'class': 'form-control'}),
             'groupe': forms.Select(attrs={'class': 'form-control'}),
             'statut': forms.Select(attrs={'class': 'form-control'}),
         }
 
-   # list_filter = ['statut', 'lieu']
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['test'].queryset = Test.objects.filter(is_active=True)
 
     def clean(self):
         cleaned_data = super().clean()
@@ -562,6 +631,10 @@ class CoursForm(ModelForm):
             'module': forms.Select(attrs={'class': 'form-control'}),
             'instructeur': forms.Select(attrs={'class': 'form-control'}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['instructeur'].queryset = Utilisateur.objects.filter(role__in=['instructeur', 'admin'])
 
 class AideForm(ModelForm):
     class Meta:
@@ -587,7 +660,7 @@ class UtilisateurForm(ModelForm):
 
     class Meta:
         model = Utilisateur
-        fields = ['role']
+        fields = ['matricule', 'role', 'statut', 'specialite', 'niveau', 'date_naissance']
         labels = {
             'email': 'Email',
             'matricule': 'Matricule',
@@ -597,36 +670,45 @@ class UtilisateurForm(ModelForm):
             'statut': 'Statut',
             'specialite': 'Spécialité',
             'niveau': 'Niveau',
-            'date_preinscription': 'Date de préinscription',
             'date_naissance': 'Date de naissance',
-            'derniere_connexion': 'Dernière connexion',
         }
         widgets = {
-            'email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': "Entrez l'email"}),
             'matricule': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Entrez le matricule'}),
-            'first_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Entrez le prénom'}),
-            'last_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Entrez le nom'}),
             'role': forms.Select(attrs={'class': 'form-control'}),
             'statut': forms.Select(attrs={'class': 'form-control'}),
             'specialite': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Entrez la spécialité'}),
             'niveau': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Entrez le niveau'}),
-            'date_preinscription': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
             'date_naissance': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
-            'derniere_connexion': forms.DateTimeInput(attrs={'class': 'form-control', 'readonly': 'readonly'}),
         }
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields['derniere_connexion'].disabled = True
-
     def save(self, commit=True):
-        user = super().save(commit=False)
-        if not user.username:
-            user.username = f"user_{uuid.uuid4().hex[:8]}_{user.email.split('@')[0]}"
-        user.set_password(self.cleaned_data['password'])
-        if commit:
+        # Gérer la création/modification de l'utilisateur Django
+        if self.instance.pk:  # Modification
+            utilisateur = super().save(commit=False)
+            user = utilisateur.user
+            user.email = self.cleaned_data['email']
+            user.first_name = self.cleaned_data['first_name']
+            user.last_name = self.cleaned_data['last_name']
+            if self.cleaned_data['password']:
+                user.set_password(self.cleaned_data['password'])
             user.save()
-        return user
+        else:  # Création
+            user_data = {
+                'username': f"user_{uuid.uuid4().hex[:8]}",
+                'email': self.cleaned_data['email'],
+                'first_name': self.cleaned_data['first_name'],
+                'last_name': self.cleaned_data['last_name'],
+            }
+            user = User.objects.create_user(**user_data)
+            user.set_password(self.cleaned_data['password'])
+            user.save()
+
+            utilisateur = super().save(commit=False)
+            utilisateur.user = user
+
+        if commit:
+            utilisateur.save()
+        return utilisateur
 
     def clean_matricule(self):
         matricule = self.cleaned_data['matricule']
@@ -636,7 +718,8 @@ class UtilisateurForm(ModelForm):
 
     def clean_email(self):
         email = self.cleaned_data['email']
-        if Utilisateur.objects.filter(email=email).exclude(id=self.instance.id if self.instance else None).exists():
+        exclude_id = self.instance.user.id if self.instance and self.instance.user else None
+        if User.objects.filter(email=email).exclude(id=exclude_id).exists():
             raise forms.ValidationError("Cet email est déjà utilisé.")
         return email
 
@@ -666,8 +749,7 @@ class ChangerMotDePasseForm(forms.Form):
         widget=forms.PasswordInput(attrs={'class': 'form-control'}),
         min_length=8
     )
-    confirmer_mot_de_passe = forms.CharField(
-        label='Confirmer le mot de passe',
+    confirmer_mot_de_passe = forms.CharField(        label='Confirmer le mot de passe',
         widget=forms.PasswordInput(attrs={'class': 'form-control'}),
         min_length=8
     )
@@ -776,22 +858,20 @@ class LoginForm(forms.Form):
 
             # Vérification de l'existence de l'utilisateur et du mot de passe
             try:
-                user = Utilisateur.objects.get(email=email)
+                user = User.objects.get(email=email)
+                utilisateur = Utilisateur.objects.get(user=user)
+
                 if not user.check_password(mot_de_passe):
                     raise forms.ValidationError("Email ou mot de passe incorrect.")
 
                 # Vérifier le statut de l'utilisateur
-                if user.statut != 'actif':
+                if utilisateur.statut != 'actif':
                     raise forms.ValidationError("Votre compte est inactif. Veuillez contacter l'administrateur.")
 
-            except Utilisateur.DoesNotExist:
+            except (User.DoesNotExist, Utilisateur.DoesNotExist):
                 raise forms.ValidationError("Email ou mot de passe incorrect.")
 
         return cleaned_data
-from django import forms
-from django.forms import inlineformset_factory
-from django.core.validators import FileExtensionValidator
-from .models import Question, Test, Reponse
 
 # FormSet pour gérer les réponses
 ResponseFormSet = inlineformset_factory(
@@ -805,9 +885,6 @@ ResponseFormSet = inlineformset_factory(
         'est_correcte': forms.Select(choices=[(True, 'Correcte'), (False, 'Incorrecte')], attrs={'class': 'form-control'})
     }
 )
-
-# Formulaire pour la saisie manuelle
-# AJOUTEZ ces formulaires manquants à la fin de votre forms.py
 
 class ManualQuestionForm(forms.ModelForm):
     """Formulaire pour la saisie manuelle de questions"""
@@ -842,7 +919,6 @@ class ManualQuestionForm(forms.ModelForm):
             ('QRL', 'QRL (Question à Réponse Libre)')
         ]
 
-# Aussi, corriger la classe ImportForm si elle n'existe pas
 class ImportForm(forms.Form):
     """Formulaire pour l'importation de questions"""
     fichier = forms.FileField(
@@ -865,9 +941,6 @@ class ImportForm(forms.Form):
         label="Format du fichier"
     )
 
-# Formset pour les nouvelles réponses
-
-# Formulaire pour la sélection de questions existantes
 class SelectQuestionForm(forms.Form):
     questions = forms.ModelMultipleChoiceField(
         queryset=Question.objects.filter(test__isnull=True),
@@ -883,3 +956,43 @@ class SelectQuestionForm(forms.Form):
         if len(questions) > 50:
             raise forms.ValidationError("Vous ne pouvez pas ajouter plus de 50 questions à la fois.")
         return questions
+
+class ImportQuestionsForm(forms.Form):
+    """Formulaire pour l'importation de questions depuis un fichier"""
+    fichier = forms.FileField(
+        label="Fichier à importer",
+        validators=[FileExtensionValidator(allowed_extensions=['csv', 'xlsx', 'xls'])],
+        widget=forms.ClearableFileInput(attrs={
+            'class': 'form-control',
+            'accept': '.csv,.xlsx,.xls'
+        }),
+        help_text="Formats supportés : CSV, Excel (.xlsx, .xls)"
+    )
+
+    images = forms.FileField(
+        label="Archive d'images (optionnel)",
+        validators=[FileExtensionValidator(allowed_extensions=['zip'])],
+        widget=forms.ClearableFileInput(attrs={
+            'class': 'form-control',
+            'accept': '.zip'
+        }),
+        required=False,
+        help_text="Archive ZIP contenant les images des questions"
+    )
+
+    module = forms.ModelChoiceField(
+        queryset=Module.objects.all(),
+        label="Module de destination",
+        widget=forms.Select(attrs={
+            'class': 'form-control'
+        })
+    )
+
+    remplacer_existantes = forms.BooleanField(
+        label="Remplacer les questions existantes",
+        required=False,
+        widget=forms.CheckboxInput(attrs={
+            'class': 'form-check-input'
+        }),
+        help_text="Cochez pour remplacer les questions déjà présentes"
+    )
